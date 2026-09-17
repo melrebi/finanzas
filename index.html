@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Registro Financiero</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px; /* Evita zoom automático en móviles */
+        }
+        input[type="number"] {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #a5d6a7;
+            cursor: not-allowed;
+        }
+        #statusMessage {
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>💸 Nuevo Gasto / Ingreso</h2>
+    <form id="financeForm">
+        
+        <div class="form-group">
+            <label for="valor">Monto (Q)</label>
+            <input type="number" id="valor" step="0.01" placeholder="0.00" required>
+        </div>
+
+        <div class="form-group">
+            <label for="categoria">Categoría</label>
+            <select id="categoria" required>
+                <option value="" disabled selected>Selecciona una categoría...</option>
+                <option value="COMIDA">Comida</option>
+                <option value="SERVICIOS">Servicios</option>
+                <option value="TRANSPORTE">Transporte</option>
+                <option value="HIPOTECA">Hipoteca</option>
+                <option value="DONACIONES">Donaciones</option>
+                <option value="TC">Tarjeta de Crédito (TC)</option>
+                <option value="AHORRO">Ahorro</option>
+                <option value="INGRESOS">Ingresos</option>
+                <option value="ROPA">Ropa</option>
+                <option value="IMPUESTOS">Impuestos</option>
+                <option value="RESTAURANTES">Restaurantes</option>
+                <option value="TRAMITES">Trámites</option>
+                <option value="GASTOS">Gastos Generales</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="descripcion">Descripción</label>
+            <input type="text" id="descripcion" placeholder="Ej. Mercado, Uber, etc." required>
+        </div>
+
+        <div class="form-group">
+            <label for="fecha">Fecha</label>
+            <input type="date" id="fecha" required>
+        </div>
+        
+        <!-- El campo saldo se puede enviar vacío si se calcula en la hoja -->
+        <input type="hidden" id="saldo" value="">
+
+        <button type="submit" id="submitBtn">Registrar</button>
+    </form>
+    <div id="statusMessage"></div>
+</div>
+
+<script>
+    // ESTA ES LA URL QUE DEBES REEMPLAZAR
+    const SCRIPT_URL = 'AQUI_PEGA_TU_URL_DE_APPS_SCRIPT'; 
+
+    const form = document.getElementById('financeForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusMessage = document.getElementById('statusMessage');
+
+    // Inicializar la fecha con el día de hoy
+    document.getElementById('fecha').valueAsDate = new Date();
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        
+        // Deshabilitar botón para evitar dobles envíos
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+        statusMessage.textContent = '';
+
+        // Formatear la fecha para que coincida con el estilo de tu hoja (D/M/YYYY)
+        const dateInput = new Date(document.getElementById('fecha').value);
+        // Ajuste por zona horaria local
+        dateInput.setMinutes(dateInput.getMinutes() + dateInput.getTimezoneOffset());
+        const formattedDate = `${dateInput.getDate()}/${dateInput.getMonth() + 1}/${dateInput.getFullYear()}`;
+
+        // Construir el objeto JSON
+        const data = {
+            fecha: formattedDate,
+            descripcion: document.getElementById('descripcion').value.toUpperCase(), // Mayúsculas para mantener el orden
+            valor: parseFloat(document.getElementById('valor').value),
+            saldo: document.getElementById('saldo').value,
+            categoria: document.getElementById('categoria').value
+        };
+
+        // Enviar a Apps Script
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            // El header 'text/plain' es un truco crucial para evitar el error de CORS con Apps Script
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8', 
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'success') {
+                statusMessage.textContent = '✅ Registro guardado exitosamente';
+                statusMessage.style.color = 'green';
+                
+                // Limpiar formulario y reiniciar fecha
+                form.reset();
+                document.getElementById('fecha').valueAsDate = new Date();
+            } else {
+                statusMessage.textContent = '❌ Error al guardar en la hoja';
+                statusMessage.style.color = 'red';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            statusMessage.textContent = '❌ Error de conexión';
+            statusMessage.style.color = 'red';
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Registrar';
+            
+            // Ocultar mensaje después de 3 segundos
+            setTimeout(() => {
+                statusMessage.textContent = '';
+            }, 3000);
+        });
+    });
+</script>
+
+</body>
+</html>
